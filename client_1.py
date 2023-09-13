@@ -11,6 +11,8 @@ def listening_messages():
         server_message = client.recv(1024).decode()
         print(server_message)
         key_message, value_message = server_message.split(";")
+        if key_message == "ready":
+            client.send("".encode())
         if key_message == "whose_turn":
             display_info(value_message)
             whose_turn = value_message
@@ -158,7 +160,6 @@ if __name__ == "__main__":
     connect_button = tk.Button(root, text="Подключиться", font=("Arial", 12), command=connect_to_host_game)
     connect_button.grid(row=0, column=2, padx=20)
 
-    root.bind("<Return>", connect_to_host_game)
     threading.Thread(target=check_main_alive).start()
 
     root.protocol("WM_DELETE_WINDOW", on_closing)

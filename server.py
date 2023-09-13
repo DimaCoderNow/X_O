@@ -4,6 +4,41 @@ import threading
 import time
 
 
+def manager_connection():
+    wait_clients = []
+    gaming_clients = []
+    print("Менеджер клиентов начал работу")
+    while True:
+        for i, client in enumerate(list_clients):
+            time.sleep(1)
+            try:
+                client.send("".encode())
+                print("Ошибки нет", client.getsockname())
+                if client not in wait_clients and client not in gaming_clients:
+                    wait_clients.append(client)
+            except Exception as e:
+                print(e)
+                list_clients.pop(i)
+        if len(wait_clients) > 1:
+            threading.Thread(target=main_game, args=(wait_clients[-1], wait_clients[-2])).start()
+            gaming_clients.append(wait_clients.pop())
+            gaming_clients.append(wait_clients.pop())
+
+        for i, client in enumerate(gaming_clients):
+            try:
+                client.send("".encode())
+            except Exception as e:
+                print(e)
+                gaming_clients.pop(i)
+        for i, client in enumerate(wait_clients):
+            if client in gaming_clients:
+                wait_clients.pop(i)
+        time.sleep(1)
+        print("Всего играющих:", len(gaming_clients))
+        print("Всего подключено:", len(list_clients))
+        print("Ожидают противника:", len(wait_clients))
+
+
 def main_game(p1, p2):
     print("main start")
     step = 0
@@ -133,36 +168,38 @@ if __name__ == "__main__":
 
     new_player_1 = None
     new_player_2 = None
-
+    list_clients = []
+    threading.Thread(target=manager_connection).start()
     while True:
         connection, address = server.accept()
         print("connection:", connection)
         print("address:", address)
+        list_clients.append(connection)
 
-        if not new_player_1:
-            new_player_1 = connection
-            print("Player_1 connected!")
-        else:
-            new_player_2 = connection
-            print("Player_2 connected!")
-
-        print("p1-", new_player_1)
-        print("p2-", new_player_2)
-        #  Если игроки подключены, запускаем поток с игрой
-        if new_player_2 and new_player_1:
-            try:
-                new_player_2.send(";".encode())
-            except Exception as e:
-                print(e)
-                new_player_2 = None
-            try:
-                new_player_1.send(";".encode())
-            except Exception as e:
-                print(e)
-                new_player_1 = None
-            if new_player_2 and new_player_1:
-                threading.Thread(target=main_game, args=(new_player_1, new_player_2)).start()
-                new_player_1 = None
-                new_player_2 = None
+        # if not new_player_1:
+        #     new_player_1 = connection
+        #     print("Player_1 connected!")
+        # else:
+        #     new_player_2 = connection
+        #     print("Player_2 connected!")
+        #
+        # print("p1-", new_player_1)
+        # print("p2-", new_player_2)
+        # #  Если игроки подключены, запускаем поток с игрой
+        # if new_player_2 and new_player_1:
+        #     try:
+        #         new_player_2.send(";".encode())
+        #     except Exception as e:
+        #         print(e)
+        #         new_player_2 = None
+        #     try:
+        #         new_player_1.send(";".encode())
+        #     except Exception as e:
+        #         print(e)
+        #         new_player_1 = None
+        #     if new_player_2 and new_player_1:
+        #         threading.Thread(target=main_game, args=(new_player_1, new_player_2)).start()
+        #         new_player_1 = None
+        #         new_player_2 = None
 
         # connection.close()
