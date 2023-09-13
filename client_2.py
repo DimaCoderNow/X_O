@@ -35,6 +35,11 @@ def listening_messages():
             clear_field()
         elif key_message == "enemy_escaped":
             display_info("Враг убежал!")
+            time.sleep(3)
+            connect_button.configure(text="Подключиться")
+            client.close()
+            connect_to_host_game()
+            clear_field()
         elif key_message == "close_client":
             exit()
 
@@ -44,9 +49,7 @@ def check_main_alive():
     main_thread = threading.main_thread()
     while True:
         time.sleep(1)
-        if main_thread.is_alive():
-            print("Main is alive!")
-        else:
+        if not main_thread.is_alive():
             print("Main is dead!")
             try:
                 print("Send command: close")
@@ -82,12 +85,15 @@ def display_info(info_txt):
 
 
 def connect_to_host_game(event=None):
+    global client
+    client = socket.socket()
+    print(client)
     host_game = entry.get()
     try:
         client.connect((host_game, 12345))
         display_info("Ждем противника")
         print("Connect to server")
-        connect_button.configure(text="Подключено")
+        connect_button.configure(text="Подключено", state='disabled')
         listen_thread = threading.Thread(target=listening_messages)
         listen_thread.start()
     except Exception as e:
@@ -95,9 +101,15 @@ def connect_to_host_game(event=None):
         print(f"Failed to connect: {e}")
 
 
+def on_closing():
+    if client:
+        client.close()
+        exit()
+    exit()
+
+
 if __name__ == "__main__":
-    client = socket.socket()
-    end_game = None
+    client = None
 
     root = tk.Tk()
     root.title("Крестики&Нолики")
@@ -132,7 +144,7 @@ if __name__ == "__main__":
             button_index += 1
 
     entry = tk.Entry(root, width=20, font=("Arial", 16))
-    entry.insert(0, socket.gethostname())
+    entry.insert(0, socket.gethostbyname(socket.gethostname()))
     entry.grid(row=0, column=0, padx=20)
     move_info = tk.Label(master=root,
                          text="Введите IP Сервера",
@@ -148,6 +160,6 @@ if __name__ == "__main__":
     root.bind("<Return>", connect_to_host_game)
     threading.Thread(target=check_main_alive).start()
 
-    # root.protocol("WM_DELETE_WINDOW", on_closing)
+    root.protocol("WM_DELETE_WINDOW", on_closing)
 
     root.mainloop()

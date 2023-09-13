@@ -1,6 +1,7 @@
 import random
 import socket
 import threading
+import time
 
 
 def main_game(p1, p2):
@@ -15,7 +16,7 @@ def main_game(p1, p2):
         nonlocal game_field
         print("Start new game")
         step = 0
-        game_field = ["" for i in range(9)]
+        game_field = ["" for _ in range(9)]
         send_whose_turn()
 
     #  Прием команд от игрока
@@ -39,10 +40,12 @@ def main_game(p1, p2):
             elif command == "close_client":
                 if player == p1:
                     p2.send("enemy_escaped;0".encode())
+                    p2.close()
                     p1.send("close_client;0".encode())
                 else:
-                    p1.send("winner;0".encode())
-                    p2.send("enemy_escaped;0".encode())
+                    p1.send("enemy_escaped;0".encode())
+                    p1.close()
+                    p2.send("close_client;0".encode())
                 break
             elif command == "new_game":
                 new_game()
@@ -121,7 +124,7 @@ def main_game(p1, p2):
 
 
 if __name__ == "__main__":
-    server = socket.socket()
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     hostname = socket.gethostname()
     server.bind((hostname, 12345))
     server.listen(2)
@@ -142,10 +145,24 @@ if __name__ == "__main__":
         else:
             new_player_2 = connection
             print("Player_2 connected!")
+
+        print("p1-", new_player_1)
+        print("p2-", new_player_2)
         #  Если игроки подключены, запускаем поток с игрой
         if new_player_2 and new_player_1:
-            threading.Thread(target=main_game, args=(new_player_1, new_player_2)).start()
-            new_player_1 = None
-            new_player_2 = None
+            try:
+                new_player_2.send(";".encode())
+            except Exception as e:
+                print(e)
+                new_player_2 = None
+            try:
+                new_player_1.send(";".encode())
+            except Exception as e:
+                print(e)
+                new_player_1 = None
+            if new_player_2 and new_player_1:
+                threading.Thread(target=main_game, args=(new_player_1, new_player_2)).start()
+                new_player_1 = None
+                new_player_2 = None
 
         # connection.close()
