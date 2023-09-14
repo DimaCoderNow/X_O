@@ -2,41 +2,60 @@ import random
 import socket
 import threading
 import time
+import tkinter as tk
+
+
+def add_new_connect():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    hostname = socket.gethostname()
+    server.bind((hostname, 12345))
+    server.listen(2)
+    print("server is running and listening")
+    label_list[0].configure(text=f"IP сервера: {server.getsockname()[0]}",
+                            bg="#2B2B2B",
+                            fg="#98B6C5")
+    print(f"IP сервера {server.getsockname()[0]}")
+    while True:
+        connection, address = server.accept()
+        print("connection:", connection)
+        print("address:", address)
+        list_clients.append(connection)
 
 
 def manager_connection():
-    wait_clients = []
-    gaming_clients = []
     print("Менеджер клиентов начал работу")
     while True:
         for i, client in enumerate(list_clients):
             time.sleep(1)
             try:
                 client.send("".encode())
-                print("Ошибки нет", client.getsockname())
                 if client not in wait_clients and client not in gaming_clients:
                     wait_clients.append(client)
             except Exception as e:
                 print(e)
                 list_clients.pop(i)
+
         if len(wait_clients) > 1:
-            threading.Thread(target=main_game, args=(wait_clients[-1], wait_clients[-2])).start()
+            threading.Thread(target=main_game, args=(wait_clients[0], wait_clients[1])).start()
             gaming_clients.append(wait_clients.pop())
             gaming_clients.append(wait_clients.pop())
 
         for i, client in enumerate(gaming_clients):
-            try:
-                client.send("".encode())
-            except Exception as e:
-                print(e)
+            if client not in list_clients:
                 gaming_clients.pop(i)
+
         for i, client in enumerate(wait_clients):
-            if client in gaming_clients:
+            if client not in list_clients:
                 wait_clients.pop(i)
+
         time.sleep(1)
-        print("Всего играющих:", len(gaming_clients))
-        print("Всего подключено:", len(list_clients))
-        print("Ожидают противника:", len(wait_clients))
+        label_list[3].configure(text=f"Всего в игре: {len(gaming_clients)}")
+        label_list[1].configure(text=f"Всего подключено: {len(list_clients)}")
+        label_list[2].configure(text=f"Ожидают противника: {len(wait_clients)}")
+        print("_____________")
+        for client in list_clients:
+            print(client)
+        print("_____________")
 
 
 def main_game(p1, p2):
@@ -75,13 +94,16 @@ def main_game(p1, p2):
             elif command == "close_client":
                 if player == p1:
                     p2.send("enemy_escaped;0".encode())
-                    p2.close()
+                    wait_clients.append(p2)
                     p1.send("close_client;0".encode())
+
                 else:
                     p1.send("enemy_escaped;0".encode())
-                    p1.close()
+                    wait_clients.append(p1)
                     p2.send("close_client;0".encode())
-                break
+
+                exit()
+
             elif command == "new_game":
                 new_game()
 
@@ -159,47 +181,27 @@ def main_game(p1, p2):
 
 
 if __name__ == "__main__":
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    hostname = socket.gethostname()
-    server.bind((hostname, 12345))
-    server.listen(2)
-    print("server is running and listening")
-    print(f"IP сервера {server.getsockname()[0]}")
+    root = tk.Tk()
+    root.title("Монитор подключений")
+    root.configure(background="#2B2B2B")
+    root.geometry("400x190+550+250")
+    root.resizable(False, False)
 
-    new_player_1 = None
-    new_player_2 = None
+    label_list = []
+    wait_clients = []
+    gaming_clients = []
+    for i in range(4):
+        label_list.append(tk.Label(master=root,
+                                   text="",
+                                   font=("Arial", 18, "bold"),
+                                   bg="#3C3F41",
+                                   fg="#F6F6F6",
+                                   width=26,
+                                   ))
+        label_list[i].grid(row=i, column=0, padx=5, pady=5)
+
     list_clients = []
+    threading.Thread(target=add_new_connect).start()
     threading.Thread(target=manager_connection).start()
-    while True:
-        connection, address = server.accept()
-        print("connection:", connection)
-        print("address:", address)
-        list_clients.append(connection)
 
-        # if not new_player_1:
-        #     new_player_1 = connection
-        #     print("Player_1 connected!")
-        # else:
-        #     new_player_2 = connection
-        #     print("Player_2 connected!")
-        #
-        # print("p1-", new_player_1)
-        # print("p2-", new_player_2)
-        # #  Если игроки подключены, запускаем поток с игрой
-        # if new_player_2 and new_player_1:
-        #     try:
-        #         new_player_2.send(";".encode())
-        #     except Exception as e:
-        #         print(e)
-        #         new_player_2 = None
-        #     try:
-        #         new_player_1.send(";".encode())
-        #     except Exception as e:
-        #         print(e)
-        #         new_player_1 = None
-        #     if new_player_2 and new_player_1:
-        #         threading.Thread(target=main_game, args=(new_player_1, new_player_2)).start()
-        #         new_player_1 = None
-        #         new_player_2 = None
-
-        # connection.close()
+    root.mainloop()

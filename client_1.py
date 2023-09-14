@@ -11,8 +11,6 @@ def listening_messages():
         server_message = client.recv(1024).decode()
         print(server_message)
         key_message, value_message = server_message.split(";")
-        if key_message == "ready":
-            client.send("".encode())
         if key_message == "whose_turn":
             display_info(value_message)
             whose_turn = value_message
@@ -21,28 +19,27 @@ def listening_messages():
         elif key_message == "mark_enemy":
             mark_field(int(value_message), "O")
         elif key_message == "drawn_game":
-            whose_turn = ""
             display_info("Ничья!")
             clear_field()
+            time.sleep(3)
             if value_message == "p1":
                 client.send("new_game;1".encode())
         elif key_message == "winner":
-            whose_turn = ""
             display_info("Ты победил!")
             clear_field()
+            time.sleep(3)
             client.send("new_game;1".encode())
         elif key_message == "dead":
-            whose_turn = ""
             display_info("Ты проиграл!")
             clear_field()
+            time.sleep(3)
         elif key_message == "enemy_escaped":
             display_info("Враг убежал!")
-            time.sleep(3)
-            connect_button.configure(text="Подключиться")
             client.close()
             connect_to_host_game()
             clear_field()
         elif key_message == "close_client":
+            client.close()
             exit()
 
 
@@ -59,9 +56,16 @@ def check_main_alive():
             except Exception as e:
                 print(e)
             break
+        try:
+            client.send("".encode())
+        except Exception as e:
+            print(e)
+            connect_to_host_game()
 
 
 def clear_field():
+    global whose_turn
+    whose_turn = ""
     time.sleep(1)
     for j in range(9):
         time.sleep(0.2)
@@ -86,33 +90,37 @@ def display_info(info_txt):
     move_info.configure(text=info_txt)
 
 
-def connect_to_host_game(event=None):
+def connect_to_host_game():
     global client
-    client = socket.socket()
-    print(client)
-    host_game = entry.get()
-    try:
-        client.connect((host_game, 12345))
-        display_info("Ждем противника")
-        print("Connect to server")
-        connect_button.configure(text="Подключено", state='disabled')
-        listen_thread = threading.Thread(target=listening_messages)
-        listen_thread.start()
-    except Exception as e:
-        display_info("Проверьте IP")
-        print(f"Failed to connect: {e}")
+
+    if not whose_turn:
+        # client = socket.socket()
+        host_game = entry.get()
+        # client.connect((host_game, 12345))
+        try:
+            client.connect((host_game, 12345))
+            display_info("Ждем противника")
+            print("Connect to server")
+            connect_button.configure(text="Подключено", state='active')
+            threading.Thread(target=listening_messages).start()
+            threading.Thread(target=check_main_alive).start()
+        except Exception as e:
+            display_info("Проверьте IP")
+            print(f"Failed to connect: {e}")
 
 
 def on_closing():
-    if client:
+    root.destroy()
+    try:
         client.send("close_client;0".encode())
         client.close()
+        print("Client Close")
+    finally:
         exit()
-    exit()
 
 
 if __name__ == "__main__":
-    client = None
+    client = socket.socket()
 
     root = tk.Tk()
     root.title("Крестики&Нолики")
@@ -159,8 +167,6 @@ if __name__ == "__main__":
 
     connect_button = tk.Button(root, text="Подключиться", font=("Arial", 12), command=connect_to_host_game)
     connect_button.grid(row=0, column=2, padx=20)
-
-    threading.Thread(target=check_main_alive).start()
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
 
